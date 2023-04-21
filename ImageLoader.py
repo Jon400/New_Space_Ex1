@@ -1,5 +1,6 @@
 import cv2
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 import pillow_heif
 from PIL import Image
@@ -40,7 +41,7 @@ def load_image(img_path):
     try:
         valid_path = __validate_path(img_path)
         im = cv2.cvtColor(cv2.imread(valid_path), cv2.COLOR_BGR2GRAY)
-        im = im.astype(float)
+        im = im.astype(np.uint8)
         return im
     except Exception as e:
         print(e)
