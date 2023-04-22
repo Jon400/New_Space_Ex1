@@ -123,7 +123,7 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
     :param points1: Feature points from first image.
     :param points2: Feature points from second image.
     :param dist_thresh: Set a distance threshold for matching points (default=100)
-    :return: List of points after validation.
+    :return: List of index pairs of the point in each list (points1_idx, points2_idx), after validation.
     """
     try:
         M = model.params  # Get transformation matrix
