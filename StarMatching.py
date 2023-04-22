@@ -23,7 +23,7 @@ def __calculate_transformation(M: np.ndarray, src_pt):
     return None
 
 
-def __get_line_points(L, min_x, max_x):
+def __get_points_on_line(L, min_x, max_x):
     m, b = L.m, L.b
     y1 = m * min_x + b
     y2 = m * max_x + b
@@ -48,21 +48,40 @@ def __least_squares(points):
 
 def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
     L = __least_squares(np.array(points))
-    p1, p2 = __get_line_points(L, 0, 1)
+    p1, p2 = __get_points_on_line(L, 0, 1)
     ret_points = sorted(points, key=lambda p: __calc_dist(p, p1, p2))
     return L, np.array(ret_points)[:return_n_first]
 
 
 def __estimate_line_ransac(points: list):
     points_arr = np.array(points)
-    model, inliers = ransac(points_arr, LineModelND, min_samples=2, residual_threshold=5)
-    return model, points_arr[inliers]
+    model, inliers = ransac(points_arr, LineModelND, min_samples=2, residual_threshold=15)
+    p1, p2 = model.params
+    return __get_line_from_points(p1, p2), points_arr[inliers]
 
 
-def estimate_transformation(points1: list, points2: list, max_iterations=500):
+def __get_line_from_points(p1: np.ndarray, p2: np.ndarray) -> Line:
+    x1, y1 = p1
+    x2, y2 = p2
+    if x2 == x1:  # avoid division by zero!
+        return Line(0, 0)
+    m = (y2 - y1) / (x2 - x1)  # calculate the slope
+    b = y1 - m * x1  # calculate the y-intercept
+    return Line(m, b)
+
+
+def estimate_transformation(points1: list, points2: list, max_iterations=500, method='lstsq'):
+    """
+    :param method: 'lstsq' or 'ransac' (default is 'lstsq')
+    :return:
+    """
     try:
-        L1, inliers1 = __estimate_line(points1)
-        L2, inliers2 = __estimate_line(points2)
+        if method == 'ransac':
+            L1, inliers1 = __estimate_line_ransac(points1)
+            L2, inliers2 = __estimate_line_ransac(points2)
+        else:
+            L1, inliers1 = __estimate_line(points1)
+            L2, inliers2 = __estimate_line(points2)
         size = min(len(inliers1), len(inliers2))
         if size < 3:
             return None, None, None
@@ -70,10 +89,10 @@ def estimate_transformation(points1: list, points2: list, max_iterations=500):
         best_model = None
         for i in range(max_iterations):
             # robustly estimate affine transform model with RANSAC
-            model, _ = ransac((inliers1, inliers2), AffineTransform, min_samples=2,
+            model, _ = ransac((inliers1[:size], inliers2[:size]), AffineTransform, min_samples=2,
                               residual_threshold=2, max_trials=100)
             # train model on inliers, compute matches on all feature points
-            matched_points = get_star_matches(model, points1, points2)
+            matched_points = get_star_matches(model, inliers1, inliers2)
             n_correct = len(matched_points)
             if best_correct < n_correct:
                 best_correct = n_correct
@@ -127,8 +146,8 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
 def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
                  im1_data: np.ndarray, im2_data: np.ndarray,
                  L1: Line, L2: Line):
-    p1, p2 = __get_line_points(L1, 0, im1.shape[1])
-    p3, p4 = __get_line_points(L2, 0, im2.shape[1])
+    p1, p2 = __get_points_on_line(L1, 0, im1.shape[1])
+    p3, p4 = __get_points_on_line(L2, 0, im2.shape[1])
 
     fig, ax = plt.subplots(ncols=2, figsize=(10, 10))
     ax[0].imshow(im1, cmap='gray')
@@ -173,7 +192,7 @@ if __name__ == '__main__':
     points1 = [pt for pt in im1_data[:, :2]]
     points2 = [pt for pt in im2_data[:, :2]]
 
-    model, L1, L2 = estimate_transformation(points1, points2)
+    model, L1, L2 = estimate_transformation(points1, points2, method='lstsq')
     matched_points = get_star_matches(model, points1, points2)
 
     plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2)
