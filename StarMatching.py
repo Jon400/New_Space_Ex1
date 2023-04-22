@@ -8,7 +8,6 @@ from collections import namedtuple
 from skimage.measure import ransac, LineModelND
 from skimage.transform import AffineTransform
 from ImageLoader import load_image
-from StarDetector import get_blobs
 
 Line = namedtuple('Line', 'm b')
 
