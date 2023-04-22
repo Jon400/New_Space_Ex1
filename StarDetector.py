@@ -24,7 +24,7 @@ def __get_hough_circles(img):
     return circles
 
 
-def find_stars(img, as_pandas=False):
+def __find_hough(img, as_pandas=False):
     coords, kps = [], []
     circles = __get_hough_circles(img)
     if circles is not None:
@@ -62,7 +62,7 @@ def __get_blobs(img):
     return kp
 
 
-def find_blobs(img, as_pandas=False):
+def __find_blobs(img, as_pandas=False):
     keypoints = __get_blobs(img)
     coords = []
     for kp in keypoints:
@@ -74,6 +74,16 @@ def find_blobs(img, as_pandas=False):
     if as_pandas:
         return keypoints, pd.DataFrame(coords_arr, columns=['x', 'y', 'r', 'b'])
     return keypoints, coords_arr
+
+
+def find_stars(img, as_pandas=False, method='hough'):
+    """
+    :param method: 'blob' or 'hough' (default 'hough')
+    """
+    if method == 'blob':
+        return __find_blobs(img, as_pandas)
+    else:
+        return __find_hough(img, as_pandas)
 
 
 def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str):
@@ -95,6 +105,7 @@ def plot_detected_stars(img, kps):
     plt.figure(figsize=(10, 10))
     plt.imshow(img_with_kps)
     plt.axis('off')
+    plt.tight_layout()
     plt.show()
 
 
