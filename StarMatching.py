@@ -50,31 +50,26 @@ def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
     return L, np.array(ret_points)[:return_n_first]
 
 
-def estimate_transformation(points1: list, points2: list, max_iterations=200):
-    # estimate line model from keypoints
-    L1, inliers1 = __estimate_line(points1)
-    L2, inliers2 = __estimate_line(points2)
-    best_correct = 0
-    best_model = None
-    sample_size = min(len(inliers1), len(inliers2))
-    if sample_size >= 4:
+def estimate_transformation(points1: list, points2: list, max_iterations=500):
+    try:
+        L1, inliers1 = __estimate_line(points1)
+        L2, inliers2 = __estimate_line(points2)
+        best_correct = 0
+        best_model = None
         for i in range(max_iterations):
-            if i == 0:
-                sample1 = inliers1[:sample_size]
-                sample2 = inliers2[:sample_size]
-            else:
-                indices = random.sample(range(sample_size), sample_size)
-                sample1 = inliers1[indices]
-                sample2 = inliers2[indices]
             # robustly estimate affine transform model with RANSAC
-            model, _ = ransac((sample1, sample2), AffineTransform, min_samples=3,
+            model, _ = ransac((inliers1, inliers2), AffineTransform, min_samples=3,
                               residual_threshold=2, max_trials=100)
-            matched_points = get_star_matches(model, inliers1.tolist(), inliers2.tolist())
+            # train model on inliers, compute matches on all feature points
+            matched_points = get_star_matches(model, points1, points2)
             n_correct = len(matched_points)
             if best_correct < n_correct:
                 best_correct = n_correct
                 best_model = model
-    return best_model
+        return best_model
+    except Exception as e:
+        print(e)
+        return None
 
 
 def __validate_matching(matched_points: list) -> np.ndarray:
@@ -111,32 +106,3 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
     sorted_points = sorted(matched_points, key=lambda val: val[2])  # sort by lowest to highest distance
     mapped_points = list(map(lambda v: (v[0], v[1]), sorted_points))  # save only the indices
     return __validate_matching(mapped_points)
-
-
-if __name__ == '__main__':
-    im1_path = "Ex1_test_101/fr1.jpg"
-    im2_path = "Ex1_test_101/fr2.jpg"
-
-    img1 = load_image(im1_path)
-    img2 = load_image(im2_path)
-
-    kp1 = get_blobs(img1)
-    kp2 = get_blobs(img2)
-
-    pts1 = [val.pt for val in kp1]
-    pts2 = [val.pt for val in kp2]
-
-    # p1, p2, inlier_pts = estimate_line(pts1)
-    # line2, inlier_pts2 = estimate_line(pts2)
-    # print(len(inlier_pts2))
-    # x, y = pts2[:, 0], pts2[:, 1]
-    # m, b = line.m, line.b
-    # plt.plot(x, y, 'o', label='Original data', markersize=10)
-    # plt.plot(x, m * x + b, 'r', label='Fitted line')
-    # plt.legend()
-    # plt.show()
-
-    model = estimate_transformation(pts1, pts2)
-    # print(model.params)
-    matches = get_star_matches(model, pts1, pts2)
-    # print(matches)
