@@ -145,7 +145,7 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
 
 def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
                  im1_data: np.ndarray, im2_data: np.ndarray,
-                 L1: Line, L2: Line):
+                 L1: Line, L2: Line, n_first=15):
     p1, p2 = __get_points_on_line(L1, 0, im1.shape[1])
     p3, p4 = __get_points_on_line(L2, 0, im2.shape[1])
 
@@ -166,13 +166,16 @@ def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
         ax[1].text(x2, y2, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
         ax[1].add_patch(plt.Circle((x2, y2), radius=r2 + 25, edgecolor='r', facecolor='none'))
 
+        if num == n_first:  # Otherwise is crowded!
+            break
+
     # Plot all detected stars
     for star in im1_data:
         x1, y1, r1, b1 = star
-        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.3))
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.2))
     for star in im2_data:
         x1, y1, r1, b1 = star
-        ax[1].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.3))
+        ax[1].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.2))
 
     ax[0].axis('off')
     ax[1].axis('off')
