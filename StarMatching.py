@@ -1,6 +1,8 @@
 import random
 import cv2
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from itertools import product
 from collections import namedtuple
 from skimage.measure import ransac, LineModelND
@@ -8,21 +10,10 @@ from skimage.transform import AffineTransform
 from ImageLoader import load_image
 from StarDetector import get_blobs
 
-Line = namedtuple('Line', 'a b c')
-Point = namedtuple('Point', 'x y')
+Line = namedtuple('Line', 'm b')
 
 
-def get_line_pts(L, x_min=0, x_max=500):
-    # Compute two points on the line
-    x1 = -x_min
-    y1 = (-L.a * x1 - L.c) / L.b
-
-    x2 = x_max
-    y2 = (-L.a * x2 - L.c) / L.b
-    return Point(x1, y1), Point(x2, y2)
-
-
-def calculate_transformation(M, src_pt):
+def __calculate_transformation(M: np.ndarray, src_pt):
     x, y = src_pt
     new_coords = M @ np.array([x, y, 1])
     new_coords /= new_coords[-1]  # divide by last coordinate to normalize
@@ -32,97 +23,95 @@ def calculate_transformation(M, src_pt):
     return None
 
 
-def __get_line(p1, p2):
-    x1, y1 = p1
-    x2, y2 = p2
-
-    # Compute the line parameters (y = a*x + b + c)
-    if x2 - x1 == 0:
-        return None  # avoid division by zero
-    a = (y2 - y2) / (x2 - x1)
-    b = y1 - a * x1
-    c = x2 * y1 - x1 * y2
-    return Line(a, b, c)
+def __get_line_points(L):
+    m, b = L.m, L.b
+    return np.array([0, b]), np.array([-b / m, 0])
 
 
-def __calc_dist(pt, L):
+# https://stackoverflow.com/questions/39840030/distance-between-point-and-a-line-from-two-points
+def __calc_dist(p1, p2, p3):
     """
     Calculate the point's distance from a given line.
-    :param pt:
-    :param L:
-    :return:
     """
-    x, y = pt
-    return abs((L.a * x - y + L.b + L.c) / np.sqrt(L.a ** 2 + L.b ** 2))
+    return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1)
 
 
-def estimate_line(points, threshold=100, max_iterations=3000):
-    """
-    Detects a line using the RANSAC algorithm.
-    :param points: A list of 2D points in the form [(x1, y1), (x2, y2), ...].
-    :param threshold: The maximum distance allowed between a point and the fitted line.
-    :param max_iterations: The maximum number of iterations to run the RANSAC algorithm.
-    :return: A tuple (a, b, inliers), where a and b are the slope and intercept of the fitted line
-             and inliers is a list of the inlier points.
-    """
-    best_inliers = []
-    best_line = None
-
-    for i in range(max_iterations):
-        # Randomly select two points
-        p1, p2 = random.sample(points, 2)
-
-        L = __get_line(p1, p2)
-        if L is None:
-            continue
-
-        # Find the inliers (points that are within the threshold distance from the line)
-        inliers = [pt for pt in points if __calc_dist(pt, L) < threshold]
-        inliers = sorted(inliers, key=lambda pt: __calc_dist(pt, L))
-
-        # Update the best line if we found more inliers
-        if len(inliers) > len(best_inliers):
-            best_inliers = inliers
-            best_line = L
-
-    return best_line, best_inliers
+# https://numpy.org/doc/stable/reference/generated/numpy.linalg.lstsq.html
+def __least_squares(points):
+    x, y = points[:, 0], points[:, 1]
+    A = np.vstack([x, np.ones(len(x))]).T
+    m, b = np.linalg.lstsq(A, y, rcond=None)[0]
+    return Line(m, b)
 
 
-def estimate_transformation(points1, points2, sample_size=4, max_iterations=1000):
+def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
+    L = __least_squares(np.array(points))
+    p1, p2 = __get_line_points(L)
+    ret_points = sorted(points, key=lambda p: __calc_dist(p, p1, p2))
+    return L, np.array(ret_points)[:return_n_first]
+
+
+def estimate_transformation(points1: list, points2: list, max_iterations=200):
     # estimate line model from keypoints
-    line1, inliers1 = estimate_line(points1)
-    line2, inliers2 = estimate_line(points2)
-    best_inliers = 0
+    L1, inliers1 = __estimate_line(points1)
+    L2, inliers2 = __estimate_line(points2)
+    best_correct = 0
     best_model = None
-    # iterate the transformed points and look for a match in the original image
-    for _ in range(max_iterations):
-        sample1 = random.sample(inliers1, sample_size)
-        sample2 = random.sample(inliers2, sample_size)
-        # robustly estimate affine transform model with RANSAC
-        model, inliers = ransac((np.array(sample1), np.array(sample2)), AffineTransform, min_samples=3,
-                                residual_threshold=2, max_trials=100)
-        if inliers is None:
-            continue
-        n_inliers = sum(inliers == True)
-        if best_inliers < n_inliers:
-            best_inliers = n_inliers
-            best_model = model
-            print("HERE")
+    sample_size = min(len(inliers1), len(inliers2))
+    if sample_size >= 4:
+        for i in range(max_iterations):
+            if i == 0:
+                sample1 = inliers1[:sample_size]
+                sample2 = inliers2[:sample_size]
+            else:
+                indices = random.sample(range(sample_size), sample_size)
+                sample1 = inliers1[indices]
+                sample2 = inliers2[indices]
+            # robustly estimate affine transform model with RANSAC
+            model, _ = ransac((sample1, sample2), AffineTransform, min_samples=3,
+                              residual_threshold=2, max_trials=100)
+            matched_points = get_star_matches(model, inliers1.tolist(), inliers2.tolist())
+            n_correct = len(matched_points)
+            if best_correct < n_correct:
+                best_correct = n_correct
+                best_model = model
     return best_model
 
 
-def get_star_matches(model, points1, points2):
-    M = model.params
-    dist_thresh = 100  # Set a distance threshold for matching points
+def __validate_matching(matched_points: list) -> np.ndarray:
+    """
+    :param matched_points: List of potential matchings (assumes matches are in ascending order according to distance).
+    :return: Array without duplicated matched points.
+    """
+    col_names = ['i', 'j']
+    df = pd.DataFrame(data=matched_points, columns=col_names, dtype='int').astype(pd.Int64Dtype())
+    df.drop_duplicates(subset=col_names[0], keep='first', inplace=True)
+    df.drop_duplicates(subset=col_names[1], keep='first', inplace=True)
+    reduced_points = df.to_numpy()  # take only best points!
+    return reduced_points
+
+
+def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.ndarray:
+    """
+    Calculate the transformed points and look for a match in the other image.
+    :param model: Trained RANSAC model.
+    :param points1: Feature points from first image.
+    :param points2: Feature points from second image.
+    :param dist_thresh: Set a distance threshold for matching points (default=100)
+    :return: List of points after validation.
+    """
+    M = model.params  # Get transformation matrix
     matched_points = []
     for i, p1 in enumerate(points1):
-        p1_transformed = calculate_transformation(M, p1)
+        p1_transformed = __calculate_transformation(M, p1)
         if p1_transformed is not None:
             for j, p2 in enumerate(points2):
                 curr_dist = np.linalg.norm(p1_transformed - p2)
                 if curr_dist < dist_thresh:
                     matched_points.append((i, j, curr_dist))
-    return matched_points
+    sorted_points = sorted(matched_points, key=lambda val: val[2])  # sort by lowest to highest distance
+    mapped_points = list(map(lambda v: (v[0], v[1]), sorted_points))  # save only the indices
+    return __validate_matching(mapped_points)
 
 
 if __name__ == '__main__':
@@ -135,10 +124,20 @@ if __name__ == '__main__':
     kp1 = get_blobs(img1)
     kp2 = get_blobs(img2)
 
-    # Convert the keypoints to numpy arrays
     pts1 = [val.pt for val in kp1]
     pts2 = [val.pt for val in kp2]
 
-    line, inlier_pts = estimate_line(pts1)
+    # p1, p2, inlier_pts = estimate_line(pts1)
+    # line2, inlier_pts2 = estimate_line(pts2)
+    # print(len(inlier_pts2))
+    # x, y = pts2[:, 0], pts2[:, 1]
+    # m, b = line.m, line.b
+    # plt.plot(x, y, 'o', label='Original data', markersize=10)
+    # plt.plot(x, m * x + b, 'r', label='Fitted line')
+    # plt.legend()
+    # plt.show()
 
-    print(get_line_pts(line))
+    model = estimate_transformation(pts1, pts2)
+    # print(model.params)
+    matches = get_star_matches(model, pts1, pts2)
+    # print(matches)
