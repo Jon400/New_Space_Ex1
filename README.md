@@ -1,5 +1,33 @@
 # New-Space-Ex1
 
+## Usage
+
+See full example in `Demo.ipynb`.
+
+```python
+##### Load the images #####
+im1 = load_image(im1_path)
+im2 = load_image(im2_path)
+
+##### Find feature points in each image #####
+keypoints1, im1_data = find_stars(im1, method='hough')
+keypoints2, im2_data = find_stars(im2, method='hough')
+
+##### Convert keypoints to a list of points #####
+points1 = [pt for pt in im1_data[:, :2]]
+points2 = [pt for pt in im2_data[:, :2]]
+
+##### Estimate Affine transformation #####
+model, L1, L2 = estimate_transformation(points1, points2, method='lstsq')
+##### Detect matches using the estimated transformation #####
+matched_points = get_star_matches(model, points1, points2)
+
+##### Plot and save results #####
+plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2, n_first=15)
+save_as_text_file(im1_data, f"data/{im1_path.split('.')[1]}.txt")
+save_as_text_file(im2_data, f"data/{im2_path.split('.')[1]}.txt")
+```
+
 ## Part 1: Algorithm
 
 For each image:
@@ -7,7 +35,7 @@ For each image:
 1. Load the image.
 2. Detect the stars in the image.
 3. Determine the slope (m) and y-intercept (b) of the line that goes through the stars which have the shortest distance
-   from the given points, using the least squares method. 
+   from the given points, using the least squares method.
 4. Sort the stars by their distance from the line.
 5. Take the first 15 stars from the sorted list and label them as inliers.
 
@@ -45,7 +73,11 @@ We used or experimented with some methods including: thresholding, blurring, hou
 
 ### StarMatching.py
 
-* `estimate_transformation`: Uses RANSAC to estimate the Affine transformation from Image1 to Image2.
+* `estimate_transformation`: Uses RANSAC to estimate the Affine transformation from Image1 to Image2 (with least squares
+  or ransac for the lines).
 * `get_star_matches`:
+* `plot_matches`: Plot a fixed **n_first** number of matches found.
 
 ## Part 4: Results
+
+You can refer to the `Demo.ipynb` file or run it yourself to view the results.
