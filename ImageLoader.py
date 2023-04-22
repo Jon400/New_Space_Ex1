@@ -48,7 +48,7 @@ def load_image(img_path):
 
 
 def plot_loaded_images(img1, img2):
-    fig, ax = plt.subplots(ncols=2, figsize=(10, 5))
+    fig, ax = plt.subplots(ncols=2, figsize=(20, 10))
     fig.suptitle("Loaded Images", size=15)
     ax[0].imshow(img1, cmap='gray')
     ax[1].imshow(img2, cmap='gray')
