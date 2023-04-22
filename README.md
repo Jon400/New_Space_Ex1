@@ -17,8 +17,10 @@ Functions that load and display images (such as png, jpf, and heic).
 
 Functions that detect stars in a loaded image.
 
-* `find_stars`: Uses blob detection with binary thresholding to detect the stars in an image.
-* `save_as_text_file`: Saves the stars data in a file **(x, y, r, b)**.
+We used or experimented with some methods including: thresholding, blurring, hough circles, detecting blobs.
+
+* `find_stars`: Detect the stars in an image.
+* `save_as_text_file`: Saves the stars' data in a file **(x, y, r, b)**.
 
 ## Part 3: Matching Stars in 2 Images
 
