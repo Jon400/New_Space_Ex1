@@ -23,9 +23,11 @@ def __calculate_transformation(M: np.ndarray, src_pt):
     return None
 
 
-def __get_line_points(L):
+def __get_line_points(L, min_x, max_x):
     m, b = L.m, L.b
-    return np.array([0, b]), np.array([-b / m, 0])
+    y1 = m * min_x + b
+    y2 = m * max_x + b
+    return np.array([min_x, y1]), np.array([max_x, y2])
 
 
 # https://stackoverflow.com/questions/39840030/distance-between-point-and-a-line-from-two-points
@@ -46,7 +48,7 @@ def __least_squares(points):
 
 def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
     L = __least_squares(np.array(points))
-    p1, p2 = __get_line_points(L)
+    p1, p2 = __get_line_points(L, 0, 1)
     ret_points = sorted(points, key=lambda p: __calc_dist(p, p1, p2))
     return L, np.array(ret_points)[:return_n_first]
 
@@ -63,7 +65,7 @@ def estimate_transformation(points1: list, points2: list, max_iterations=500):
         L2, inliers2 = __estimate_line(points2)
         size = min(len(inliers1), len(inliers2))
         if size < 3:
-            return None
+            return None, None, None
         best_correct = 0
         best_model = None
         for i in range(max_iterations):
@@ -76,10 +78,10 @@ def estimate_transformation(points1: list, points2: list, max_iterations=500):
             if best_correct < n_correct:
                 best_correct = n_correct
                 best_model = model
-        return best_model
+        return best_model, L1, L2
     except Exception as e:
         print(e)
-        return None
+        return None, None, None
 
 
 def __validate_matching(matched_points: list) -> np.ndarray:
@@ -122,6 +124,43 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
         return np.ndarray([])
 
 
+def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
+                 im1_data: np.ndarray, im2_data: np.ndarray,
+                 L1: Line, L2: Line):
+    p1, p2 = __get_line_points(L1, 0, im1.shape[1])
+    p3, p4 = __get_line_points(L2, 0, im2.shape[1])
+
+    fig, ax = plt.subplots(ncols=2, figsize=(10, 10))
+    ax[0].imshow(im1, cmap='gray')
+    ax[1].imshow(im2, cmap='gray')
+
+    # Plot fitted lines
+    ax[0].plot((p1[0], p2[0]), (p1[1], p2[1]), 'g')
+    ax[1].plot((p3[0], p4[0]), (p3[1], p4[1]), 'g')
+
+    for num, (i, j) in enumerate(matched_points, 1):
+        x1, y1, r1, b1 = im1_data[i]
+        ax[0].text(x1, y1, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none'))
+
+        x2, y2, r2, b2 = im2_data[j]
+        ax[1].text(x2, y2, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
+        ax[1].add_patch(plt.Circle((x2, y2), radius=r2 + 25, edgecolor='r', facecolor='none'))
+
+    # Plot all detected stars
+    for star in im1_data:
+        x1, y1, r1, b1 = star
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.3))
+    for star in im2_data:
+        x1, y1, r1, b1 = star
+        ax[1].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.3))
+
+    ax[0].axis('off')
+    ax[1].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == '__main__':
     im1_path = "Ex1_test_101/fr1.jpg"
     im2_path = "Ex1_test_101/fr2.jpg"
@@ -134,22 +173,7 @@ if __name__ == '__main__':
     points1 = [pt for pt in im1_data[:, :2]]
     points2 = [pt for pt in im2_data[:, :2]]
 
-    model = estimate_transformation(points1, points2)
+    model, L1, L2 = estimate_transformation(points1, points2)
     matched_points = get_star_matches(model, points1, points2)
 
-    fig, ax = plt.subplots(ncols=2, figsize=(10, 10))
-    fig.suptitle("Detected Matchings", size=15)
-    ax[0].imshow(im1, cmap='gray')
-    ax[1].imshow(im2, cmap='gray')
-
-    for num, (i, j) in enumerate(matched_points, 1):
-        x1, y1, r1, b1 = im1_data[i]
-        ax[0].text(x1, y1, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
-        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none'))
-
-        x2, y2, r2, b2 = im2_data[j]
-        ax[1].text(x2, y2, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
-        ax[1].add_patch(plt.Circle((x2, y2), radius=r2 + 25, edgecolor='r', facecolor='none'))
-
-    plt.tight_layout()
-    plt.show()
+    plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2)
