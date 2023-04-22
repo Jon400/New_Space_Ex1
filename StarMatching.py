@@ -8,6 +8,7 @@ from collections import namedtuple
 from skimage.measure import ransac, LineModelND
 from skimage.transform import AffineTransform
 from ImageLoader import load_image
+from StarDetector import find_stars
 
 Line = namedtuple('Line', 'm b')
 
@@ -50,15 +51,24 @@ def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
     return L, np.array(ret_points)[:return_n_first]
 
 
+def __estimate_line_ransac(points: list):
+    points_arr = np.array(points)
+    model, inliers = ransac(points_arr, LineModelND, min_samples=2, residual_threshold=5)
+    return model, points_arr[inliers]
+
+
 def estimate_transformation(points1: list, points2: list, max_iterations=500):
     try:
         L1, inliers1 = __estimate_line(points1)
         L2, inliers2 = __estimate_line(points2)
+        size = min(len(inliers1), len(inliers2))
+        if size < 3:
+            return None
         best_correct = 0
         best_model = None
         for i in range(max_iterations):
             # robustly estimate affine transform model with RANSAC
-            model, _ = ransac((inliers1, inliers2), AffineTransform, min_samples=3,
+            model, _ = ransac((inliers1, inliers2), AffineTransform, min_samples=2,
                               residual_threshold=2, max_trials=100)
             # train model on inliers, compute matches on all feature points
             matched_points = get_star_matches(model, points1, points2)
@@ -94,15 +104,52 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
     :param dist_thresh: Set a distance threshold for matching points (default=100)
     :return: List of points after validation.
     """
-    M = model.params  # Get transformation matrix
-    matched_points = []
-    for i, p1 in enumerate(points1):
-        p1_transformed = __calculate_transformation(M, p1)
-        if p1_transformed is not None:
-            for j, p2 in enumerate(points2):
-                curr_dist = np.linalg.norm(p1_transformed - p2)
-                if curr_dist < dist_thresh:
-                    matched_points.append((i, j, curr_dist))
-    sorted_points = sorted(matched_points, key=lambda val: val[2])  # sort by lowest to highest distance
-    mapped_points = list(map(lambda v: (v[0], v[1]), sorted_points))  # save only the indices
-    return __validate_matching(mapped_points)
+    try:
+        M = model.params  # Get transformation matrix
+        matched_points = []
+        for i, p1 in enumerate(points1):
+            p1_transformed = __calculate_transformation(M, p1)
+            if p1_transformed is not None:
+                for j, p2 in enumerate(points2):
+                    curr_dist = np.linalg.norm(p1_transformed - p2)
+                    if curr_dist < dist_thresh:
+                        matched_points.append((i, j, curr_dist))
+        sorted_points = sorted(matched_points, key=lambda val: val[2])  # sort by lowest to highest distance
+        mapped_points = list(map(lambda v: (v[0], v[1]), sorted_points))  # save only the indices
+        return __validate_matching(mapped_points)
+    except Exception as e:
+        print(e)
+        return np.ndarray([])
+
+
+if __name__ == '__main__':
+    im1_path = "Ex1_test_101/fr1.jpg"
+    im2_path = "Ex1_test_101/fr2.jpg"
+    im1 = load_image(im1_path)
+    im2 = load_image(im2_path)
+
+    keypoints1, im1_data = find_stars(im1)
+    keypoints2, im2_data = find_stars(im2)
+
+    points1 = [pt for pt in im1_data[:, :2]]
+    points2 = [pt for pt in im2_data[:, :2]]
+
+    model = estimate_transformation(points1, points2)
+    matched_points = get_star_matches(model, points1, points2)
+
+    fig, ax = plt.subplots(ncols=2, figsize=(10, 10))
+    fig.suptitle("Detected Matchings", size=15)
+    ax[0].imshow(im1, cmap='gray')
+    ax[1].imshow(im2, cmap='gray')
+
+    for num, (i, j) in enumerate(matched_points, 1):
+        x1, y1, r1, b1 = im1_data[i]
+        ax[0].text(x1, y1, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none'))
+
+        x2, y2, r2, b2 = im2_data[j]
+        ax[1].text(x2, y2, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
+        ax[1].add_patch(plt.Circle((x2, y2), radius=r2 + 25, edgecolor='r', facecolor='none'))
+
+    plt.tight_layout()
+    plt.show()
