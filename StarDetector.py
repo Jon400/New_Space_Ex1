@@ -105,7 +105,6 @@ def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str, ver
 
 def plot_detected_stars(img, stars_data):
     fig, ax = plt.subplots(ncols=2, figsize=(20, 10))
-    fig.suptitle("Loaded Images", size=15)
     ax[0].imshow(img, cmap='gray')
     ax[1].imshow(__threshold_image(img), cmap='gray')
     for (x, y, r, b) in stars_data:
