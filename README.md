@@ -5,7 +5,7 @@
 See full example in `Demo.ipynb`.
 
 ```python
-  ##### Load the images #####
+##### Load the images #####
 im1 = load_image(im1_path)
 im2 = load_image(im2_path)
 
@@ -19,9 +19,9 @@ model, L1, L2 = estimate_transformation(points1, points2, method='ransac')
 matched_points = get_star_matches(model, points1, points2)
 
 ##### Plot and save results #####
-plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2, n_first=15)
-save_as_text_file(im1_data, f"data/{im1_path.split('.')[1]}.txt")
-save_as_text_file(im2_data, f"data/{im2_path.split('.')[1]}.txt")
+plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2)
+save_as_text_file(im1_data, f"StarsData/{im1_path.split('/')[-1].split('.')[0]}.txt", verbose=True)
+save_as_text_file(im2_data, f"StarsData/{im2_path.split('/')[-1].split('.')[0]}.txt", verbose=True)
 ```
 
 ## Part 1: Algorithm
