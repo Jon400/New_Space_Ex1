@@ -6,7 +6,7 @@ from ImageLoader import load_image
 from os import path
 
 
-def __threshold_image(img, thresh=150, max_value=255):
+def __threshold_image(img, thresh=170, max_value=255):
     """
     Apply threshold for better blob detection (darkens the background and keeps the stars).
     """
@@ -18,9 +18,9 @@ def __threshold_image(img, thresh=150, max_value=255):
 # https://docs.opencv.org/4.x/da/d53/tutorial_py_houghcircles.html
 def __get_hough_circles(img):
     img_bin = __threshold_image(img)
-    img_bin = cv2.GaussianBlur(img_bin, (7, 7), 0)
-    circles = cv2.HoughCircles(img_bin, cv2.HOUGH_GRADIENT, 1, 20,
-                               param1=200, param2=0.8, minRadius=3, maxRadius=6)
+    img_blur = cv2.GaussianBlur(img_bin, (7, 7), 0)
+    circles = cv2.HoughCircles(img_blur, cv2.HOUGH_GRADIENT, 1, 20,
+                               param1=300, param2=0.95, minRadius=2, maxRadius=6)
     return circles
 
 
@@ -121,4 +121,4 @@ if __name__ == '__main__':
     im2 = load_image(im2_path)
     points2, im2_data = find_stars(im2)
 
-    plot_detected_stars(im2, im2_data[:20])
+    plot_detected_stars(im2, im2_data)

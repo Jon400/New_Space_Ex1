@@ -1,4 +1,5 @@
 import random
+import math
 import cv2
 import numpy as np
 import pandas as pd
@@ -82,7 +83,7 @@ def __estimate_line(sample1, sample2, method):
 
 def estimate_transformation(points1: list, points2: list, max_iterations=200, method='lstsq', sample_size=20):
     """
-    :param method: 'lstsq' or 'ransac' (default is 'lstsq')
+    :param method: 'lstsq' (Least Squares) or 'ransac' (default is 'lstsq')
     :return:
     """
     try:
@@ -94,17 +95,20 @@ def estimate_transformation(points1: list, points2: list, max_iterations=200, me
         if min_len < 3:
             print("estimate_transformation(): Not enough parameters!")
             return best_model, best_L1, best_L2
-        points1_sampled = points1[:sample_size]
-        points2_sampled = points2[:sample_size]
-        L1, inliers1, L2, inliers2 = __estimate_line(points1_sampled, points2_sampled, method)
-        size = min(len(inliers1), len(inliers2))
-        if size < 3:  # Not enough points for estimation!
-            return best_model, best_L1, best_L2
+
+        # Sort points by distance from the origin
+        points1_sampled = sorted(points1, key=lambda p: math.dist(p, [0, 0]))
+        points2_sampled = sorted(points2, key=lambda p: math.dist(p, [0, 0]))
+
         for i in range(max_iterations):
+            L1, inliers1, L2, inliers2 = __estimate_line(points1_sampled, points2_sampled, method)
+            size = min(len(inliers1), len(inliers2))
+            if size < 3:  # Not enough points for estimation!
+                continue
             indices = random.sample(range(size), 3)  # Choose 3 random indices
             # Robustly estimate affine transform model with RANSAC
             model, _ = ransac((inliers1[indices], inliers2[indices]), AffineTransform, min_samples=2,
-                              residual_threshold=2, max_trials=100)
+                              residual_threshold=1, max_trials=100)
             # Count number of correct matches (inliers only!)
             matched_points = get_star_matches(model, inliers1, inliers2)
             n_correct = len(matched_points)
@@ -137,7 +141,7 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
     :param model: Trained RANSAC model.
     :param points1: Feature points from first image.
     :param points2: Feature points from second image.
-    :param dist_thresh: Set a distance threshold for matching points (default=100)
+    :param dist_thresh: Set a distance threshold for matching points (default=15)
     :return: List of index pairs of the point in each list (points1_idx, points2_idx), after validation.
     """
     try:
