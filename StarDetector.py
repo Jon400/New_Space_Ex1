@@ -106,7 +106,7 @@ def plot_detected_stars(img, stars_data):
     ax[0].imshow(img, cmap='gray')
     ax[1].imshow(__threshold_image(img), cmap='gray')
     for (x, y, r, b) in stars_data:
-        ax[1].add_patch(plt.Circle((x, y), radius=r * 4, edgecolor='g', facecolor='none', lw=3))
+        ax[1].add_patch(plt.Circle((x, y), radius=r * 4, edgecolor='g', facecolor='none'))
     ax[0].axis('off')
     ax[1].axis('off')
     plt.tight_layout()
