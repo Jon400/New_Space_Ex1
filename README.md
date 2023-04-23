@@ -5,20 +5,16 @@
 See full example in `Demo.ipynb`.
 
 ```python
-##### Load the images #####
+  ##### Load the images #####
 im1 = load_image(im1_path)
 im2 = load_image(im2_path)
 
 ##### Find feature points in each image #####
-keypoints1, im1_data = find_stars(im1, method='hough')
-keypoints2, im2_data = find_stars(im2, method='hough')
-
-##### Convert keypoints to a list of points #####
-points1 = [pt for pt in im1_data[:, :2]]
-points2 = [pt for pt in im2_data[:, :2]]
+points1, im1_data = find_stars(im1, method='hough')
+points2, im2_data = find_stars(im2, method='hough')
 
 ##### Estimate Affine transformation #####
-model, L1, L2 = estimate_transformation(points1, points2, method='lstsq')
+model, L1, L2 = estimate_transformation(points1, points2, method='ransac')
 ##### Detect matches using the estimated transformation #####
 matched_points = get_star_matches(model, points1, points2)
 
