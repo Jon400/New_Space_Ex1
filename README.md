@@ -26,12 +26,15 @@ save_as_text_file(im2_data, f"StarsData/{im2_path.split('/')[-1].split('.')[0]}.
 
 ## Methods and Approaches Explored
 
-* During our experimentation, we explored several libraries and their functions including opencv, astropy, and others.
+* In our experimentation, we extensively tried out various libraries and their functions including opencv, astropy, and
+  others.
 * We carefully evaluated the results and retained the methods that worked best for our project.
 * We also tried out other approaches such as blob detection but ultimately decided to use hough circles with Gaussian
   blurring and image thresholding for our specific task.
 * Similarly, we initially attempted to use least squares to detect the line with the most inliers, but found that using
   RANSAC for estimating the line provided better results.
+* We decided to make blob detection and least squares available as optional methods that can be called when running the
+  functions. You can experiment with these methods by changing the parameters in the function call.
 
 ## Part 1: Algorithm
 
