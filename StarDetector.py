@@ -88,14 +88,17 @@ def find_stars(img, as_pandas=False, method='hough'):
         return __find_hough(img, as_pandas)
 
 
-def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str):
+def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str, verbose: bool = False):
     """
     :param stars_data: Data returned from get_blobs_data.
-    :param filename: Path to save file
+    :param filename: Path to save file.
+    :param verbose: True will notify if the file was successfully saved (default = False).
     """
     try:
         with open(filename, 'w') as _:
             np.savetxt(filename, stars_data, delimiter='\t', fmt='%f')
+            if verbose:
+                print(f"Saved file! location: {filename}")
     except Exception as e:
         print(e)
 
