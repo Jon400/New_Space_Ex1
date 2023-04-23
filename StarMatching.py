@@ -97,11 +97,11 @@ def estimate_transformation(points1: list, points2: list, max_iterations=200, me
             return best_model, best_L1, best_L2
 
         # Sort points by distance from the origin
-        points1_sampled = sorted(points1, key=lambda p: math.dist(p, [0, 0]))
-        points2_sampled = sorted(points2, key=lambda p: math.dist(p, [0, 0]))
+        points1 = sorted(points1, key=lambda p: math.dist(p, [0, 0]))
+        points2 = sorted(points2, key=lambda p: math.dist(p, [0, 0]))
 
         for i in range(max_iterations):
-            L1, inliers1, L2, inliers2 = __estimate_line(points1_sampled, points2_sampled, method)
+            L1, inliers1, L2, inliers2 = __estimate_line(points1, points2, method)
             size = min(len(inliers1), len(inliers2))
             if size < 3:  # Not enough points for estimation!
                 continue
@@ -135,13 +135,13 @@ def __validate_matching(matched_points: list) -> np.ndarray:
     return reduced_points
 
 
-def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.ndarray:
+def get_star_matches(model, points1: list, points2: list, dist_thresh=15) -> np.ndarray:
     """
     Calculate the transformed points and look for a match in the other image.
     :param model: Trained RANSAC model.
     :param points1: Feature points from first image.
     :param points2: Feature points from second image.
-    :param dist_thresh: Set a distance threshold for matching points (default = 10)
+    :param dist_thresh: Set a distance threshold for matching points (default = 15)
     :return: List of index pairs of the point in each list (points1_idx, points2_idx), after validation.
     """
     try:
