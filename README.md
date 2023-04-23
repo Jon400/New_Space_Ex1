@@ -2,7 +2,7 @@
 
 ## Usage
 
-See full example in `Demo.ipynb`.
+See full example in [Demo](Demo.ipynb).
 
 ```python
 ##### Load the images #####
@@ -24,56 +24,68 @@ save_as_text_file(im1_data, f"StarsData/{im1_path.split('/')[-1].split('.')[0]}.
 save_as_text_file(im2_data, f"StarsData/{im2_path.split('/')[-1].split('.')[0]}.txt", verbose=True)
 ```
 
+## Methods and Approaches Explored
+
+* During our experimentation, we explored several libraries and their functions including opencv, astropy, and others.
+* We carefully evaluated the results and retained the methods that worked best for our project.
+* We also tried out other approaches such as blob detection but ultimately decided to use hough circles with Gaussian
+  blurring and image thresholding for our specific task.
+* Similarly, we initially attempted to use least squares to detect the line with the most inliers, but found that using
+  RANSAC for estimating the line provided better results.
+
 ## Part 1: Algorithm
 
-For each image:
+1. Sort the detected feature points (stars) coordinates by their distance from the origin point for each image.
 
-1. Load the image.
-2. Detect the stars in the image.
-3. Determine the slope (m) and y-intercept (b) of the line that goes through the stars which have the shortest distance
-   from the given points, using the least squares method.
-4. Sort the stars by their distance from the line.
-5. Take the first 15 stars from the sorted list and label them as inliers.
+The following steps are repeated for a fixed number of iterations:
 
-For each pair of images:
-
-1. Take the inliers from each image and match them using the RANSAC algorithm.
-2. Calculate the Affine transformation from the first image to the second image.
-3. Apply the transformation to the first image and choose the point from the second image that is closest to the
-   transformed point within a threshold.
-4. Count the number of correct matches.
-5. Repeat steps 1-4 until reaching some fixed maximum number of iterations.
-6. Choose the transformation that gave the maximum number of correct matches.
+2. Estimate a line for each image and return the line and inlier points for the one with the most inliers.
+3. Sample three indices from the inlier points of each line to estimate the Affine transformation from image 1 to image
+   2 using RANSAC.
+4. Check for matching correspondence of the transformed inlier points from image 1 in the inliers from the second image,
+   and count the number of correct matches.
+5. If the number of correct matches exceeds the previous best number of matches, save the current Affine matrix as the
+   best model.
+6. After completing all iterations, return the best Affine matrix (i.e. the RANSAC model) and the computed lines from
+   the function.
 
 ## Part 2: Detecting Stars
 
-The main functions we used to detect stars and get the data:
+To detect stars and extract their relevant data, we primarily relied on the following key functions:
 
 ### ImageLoader.py:
 
-Functions that load and display images (such as png, jpf, and heic).
+The file ImageLoader.py consists of functions that are designed to load and display images in various formats such as
+png, jpg, and heic.
 
-* `load_image`
-* `plot_loaded_images`
+One such function is `load_image`.
 
 ### StarDetector.py
 
-Functions that detect stars in a loaded image.
+Contains functions that are designed to detect stars within an image. We explored and experimented with various methods
+such as thresholding, blurring, hough circles, and blob detection techniques to achieve our goal.
 
-We used or experimented with some methods including: thresholding, blurring, hough circles, detecting blobs.
-
-* `find_stars`: Detect the stars in an image.
-* `save_as_text_file`: Saves the stars' data in a file **(x, y, r, b)**.
+* `find_stars`: Identifies and locates the stars present in an image.
+* `save_as_text_file`: Stores the relevant data of the detected stars, which includes their x and y coordinates, radius,
+  and brightness, into a file. The file format is **(x, y, r, b)**.
+* `plot_detected_stars`:  Generates a plot that shows the original image and its corresponding thresholded version side
+  by side. Additionally, it highlights the stars that were detected on the thresholded binary image.
 
 ## Part 3: Matching Stars in 2 Images
 
 ### StarMatching.py
 
-* `estimate_transformation`: Uses RANSAC to estimate the Affine transformation from Image1 to Image2 (with least squares
-  or ransac for the lines).
-* `get_star_matches`:
-* `plot_matches`: Plot a fixed **n_first** number of matches found.
+The purpose of this script is to offer functions that can be used to compare and match stars that are present in two
+different images. In addition to comparing and matching stars, this script also provides functions to visualize the
+detected matches between the two images.
+
+* `estimate_transformation`: Utilizes RANSAC algorithm to estimate the Affine transformation required to map Image1 onto
+  Image2. RANSAC is also employed for the detection of lines in the images.
+* `get_star_matches`: Computes the transformed coordinates of the stars in one image and searches for corresponding
+  matches in the other image.
+* `plot_matches`: Produces a visualization of the matches and estimated line that were detected during the matching
+  process.
 
 ## Part 4: Results
 
-You can refer to the `Demo.ipynb` file or run it yourself to view the results.
+You can refer to the [Demo](Demo.ipynb) file or run it yourself to view the results.
