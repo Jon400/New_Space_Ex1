@@ -47,7 +47,7 @@ def load_image(img_path):
         print(e)
 
 
-def plot_loaded_images(img1, img2):
+def __plot_loaded_images(img1, img2):
     fig, ax = plt.subplots(ncols=2, figsize=(20, 10))
     fig.suptitle("Loaded Images", size=15)
     ax[0].imshow(img1, cmap='gray')
@@ -63,4 +63,4 @@ if __name__ == '__main__':
     im1 = load_image(im1_path)
     im2 = load_image(im2_path)
 
-    # plot_loaded_images(im1, im2)
+    # __plot_loaded_images(im1, im2)

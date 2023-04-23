@@ -94,18 +94,21 @@ def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str):
     :param filename: Path to save file
     """
     try:
-        with open(filename, 'w') as file:
+        with open(filename, 'w') as _:
             np.savetxt(filename, stars_data, delimiter='\t', fmt='%f')
     except Exception as e:
         print(e)
 
 
 def plot_detected_stars(img, stars_data):
-    fig, ax = plt.subplots()
-    ax.imshow(img, cmap='gray')
+    fig, ax = plt.subplots(ncols=2, figsize=(20, 10))
+    fig.suptitle("Loaded Images", size=15)
+    ax[0].imshow(img, cmap='gray')
+    ax[1].imshow(__threshold_image(img), cmap='gray')
     for (x, y, r, b) in stars_data:
-        ax.add_patch(plt.Circle((x, y), radius=r * 4, edgecolor='g', facecolor='none'))
-    plt.axis('off')
+        ax[1].add_patch(plt.Circle((x, y), radius=r * 4, edgecolor='g', facecolor='none', lw=3))
+    ax[0].axis('off')
+    ax[1].axis('off')
     plt.tight_layout()
     plt.show()
 
