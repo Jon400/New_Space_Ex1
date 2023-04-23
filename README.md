@@ -89,3 +89,5 @@ detected matches between the two images.
 ## Part 4: Results
 
 You can refer to the [Demo](Demo.ipynb) file or run it yourself to view the results.
+
+In the `StarsData` directory, there are text files that store the data of the detected stars in the test images.
