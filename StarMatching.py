@@ -46,11 +46,11 @@ def __least_squares(points):
     return Line(m, b)
 
 
-def __estimate_line(points: list, return_n_first=15) -> [Line, np.ndarray]:
+def __estimate_line_lstsq(points: list) -> [Line, np.ndarray]:
     L = __least_squares(np.array(points))
     p1, p2 = __get_points_on_line(L, 0, 1)
     ret_points = sorted(points, key=lambda p: __calc_dist(p, p1, p2))
-    return L, np.array(ret_points)[:return_n_first]
+    return L, np.array(ret_points)
 
 
 def __estimate_line_ransac(points: list):
@@ -70,34 +70,49 @@ def __get_line_from_points(p1: np.ndarray, p2: np.ndarray) -> Line:
     return Line(m, b)
 
 
-def estimate_transformation(points1: list, points2: list, max_iterations=500, method='lstsq'):
+def __estimate_line(sample1, sample2, method):
+    if method == 'ransac':
+        L1, inliers1 = __estimate_line_ransac(sample1)
+        L2, inliers2 = __estimate_line_ransac(sample2)
+    else:
+        L1, inliers1 = __estimate_line_lstsq(sample1)
+        L2, inliers2 = __estimate_line_lstsq(sample2)
+    return L1, inliers1, L2, inliers2
+
+
+def estimate_transformation(points1: list, points2: list, max_iterations=200, method='lstsq', sample_size=20):
     """
     :param method: 'lstsq' or 'ransac' (default is 'lstsq')
     :return:
     """
     try:
-        if method == 'ransac':
-            L1, inliers1 = __estimate_line_ransac(points1)
-            L2, inliers2 = __estimate_line_ransac(points2)
-        else:
-            L1, inliers1 = __estimate_line(points1)
-            L2, inliers2 = __estimate_line(points2)
-        size = min(len(inliers1), len(inliers2))
-        if size < 3:
-            return None, None, None
         best_correct = 0
         best_model = None
+        best_L1, best_L2 = None, None
+        # Check if satisfies minimum length
+        min_len = min(len(points1), len(points2))
+        if min_len < 3:
+            print("estimate_transformation(): Not enough parameters!")
+            return best_model, best_L1, best_L2
+        points1_sampled = points1[:sample_size]
+        points2_sampled = points2[:sample_size]
+        L1, inliers1, L2, inliers2 = __estimate_line(points1_sampled, points2_sampled, method)
+        size = min(len(inliers1), len(inliers2))
+        if size < 3:  # Not enough points for estimation!
+            return best_model, best_L1, best_L2
         for i in range(max_iterations):
-            # robustly estimate affine transform model with RANSAC
-            model, _ = ransac((inliers1[:size], inliers2[:size]), AffineTransform, min_samples=2,
+            indices = random.sample(range(size), 3)  # Choose 3 random indices
+            # Robustly estimate affine transform model with RANSAC
+            model, _ = ransac((inliers1[indices], inliers2[indices]), AffineTransform, min_samples=2,
                               residual_threshold=2, max_trials=100)
-            # train model on inliers, compute matches on all feature points
+            # Count number of correct matches (inliers only!)
             matched_points = get_star_matches(model, inliers1, inliers2)
             n_correct = len(matched_points)
             if best_correct < n_correct:
                 best_correct = n_correct
                 best_model = model
-        return best_model, L1, L2
+                best_L1, best_L2 = L1, L2
+        return best_model, best_L1, best_L2
     except Exception as e:
         print(e)
         return None, None, None
@@ -145,7 +160,7 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
 
 def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
                  im1_data: np.ndarray, im2_data: np.ndarray,
-                 L1: Line, L2: Line, n_first=15):
+                 L1: Line, L2: Line, n_first=20):
     p1, p2 = __get_points_on_line(L1, 0, im1.shape[1])
     p3, p4 = __get_points_on_line(L2, 0, im2.shape[1])
 
@@ -160,11 +175,11 @@ def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
     for num, (i, j) in enumerate(matched_points, 1):
         x1, y1, r1, b1 = im1_data[i]
         ax[0].text(x1, y1, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
-        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none'))
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 * 4, edgecolor='r', facecolor='none'))
 
         x2, y2, r2, b2 = im2_data[j]
         ax[1].text(x2, y2, f"{num}", color='b', fontsize=12, horizontalalignment='left', verticalalignment='baseline')
-        ax[1].add_patch(plt.Circle((x2, y2), radius=r2 + 25, edgecolor='r', facecolor='none'))
+        ax[1].add_patch(plt.Circle((x2, y2), radius=r2 * 4, edgecolor='r', facecolor='none'))
 
         if num == n_first:  # Otherwise is crowded!
             break
@@ -172,10 +187,10 @@ def plot_matches(matched_points: np.ndarray, im1: np.ndarray, im2: np.ndarray,
     # Plot all detected stars
     for star in im1_data:
         x1, y1, r1, b1 = star
-        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.2))
+        ax[0].add_patch(plt.Circle((x1, y1), radius=r1 * 4, edgecolor='r', facecolor='none', alpha=0.2))
     for star in im2_data:
         x1, y1, r1, b1 = star
-        ax[1].add_patch(plt.Circle((x1, y1), radius=r1 + 25, edgecolor='r', facecolor='none', alpha=0.2))
+        ax[1].add_patch(plt.Circle((x1, y1), radius=r1 * 4, edgecolor='r', facecolor='none', alpha=0.2))
 
     ax[0].axis('off')
     ax[1].axis('off')
@@ -189,13 +204,14 @@ if __name__ == '__main__':
     im1 = load_image(im1_path)
     im2 = load_image(im2_path)
 
-    keypoints1, im1_data = find_stars(im1)
-    keypoints2, im2_data = find_stars(im2)
+    points1, im1_data = find_stars(im1, method='hough')
+    points2, im2_data = find_stars(im2, method='hough')
+    print(f"\tImage1 number of feature points found: {len(points1)}\n"
+          f"\tImage2 number of feature points found: {len(points2)}")
 
-    points1 = [pt for pt in im1_data[:, :2]]
-    points2 = [pt for pt in im2_data[:, :2]]
-
-    model, L1, L2 = estimate_transformation(points1, points2, method='lstsq')
+    model, L1, L2 = estimate_transformation(points1, points2, method='ransac')
     matched_points = get_star_matches(model, points1, points2)
 
-    plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2)
+    print(f"Number of matches: {len(matched_points)}")
+
+    plot_matches(matched_points, im1, im2, im1_data, im2_data, L1, L2, n_first=20)
