@@ -72,18 +72,18 @@ def __get_line_from_points(p1: np.ndarray, p2: np.ndarray) -> Line:
 
 
 def __estimate_line(sample1, sample2, method):
-    if method == 'ransac':
-        L1, inliers1 = __estimate_line_ransac(sample1)
-        L2, inliers2 = __estimate_line_ransac(sample2)
-    else:
+    if method == 'lstsq':
         L1, inliers1 = __estimate_line_lstsq(sample1)
         L2, inliers2 = __estimate_line_lstsq(sample2)
+    else:
+        L1, inliers1 = __estimate_line_ransac(sample1)
+        L2, inliers2 = __estimate_line_ransac(sample2)
     return L1, inliers1, L2, inliers2
 
 
-def estimate_transformation(points1: list, points2: list, max_iterations=200, method='lstsq', sample_size=20):
+def estimate_transformation(points1: list, points2: list, max_iterations=200, method='ransac'):
     """
-    :param method: 'lstsq' (Least Squares) or 'ransac' (default is 'lstsq')
+    :param method: 'lstsq' (Least Squares) or 'ransac' (default is 'ransac')
     :return:
     """
     try:
@@ -141,7 +141,7 @@ def get_star_matches(model, points1: list, points2: list, dist_thresh=10) -> np.
     :param model: Trained RANSAC model.
     :param points1: Feature points from first image.
     :param points2: Feature points from second image.
-    :param dist_thresh: Set a distance threshold for matching points (default=15)
+    :param dist_thresh: Set a distance threshold for matching points (default = 10)
     :return: List of index pairs of the point in each list (points1_idx, points2_idx), after validation.
     """
     try:
