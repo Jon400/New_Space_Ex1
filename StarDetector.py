@@ -20,25 +20,20 @@ def __get_hough_circles(img):
     img_bin = __threshold_image(img)
     img_bin = cv2.GaussianBlur(img_bin, (7, 7), 0)
     circles = cv2.HoughCircles(img_bin, cv2.HOUGH_GRADIENT, 1, 20,
-                               param1=300, param2=0.8, minRadius=2, maxRadius=4)
+                               param1=200, param2=0.8, minRadius=3, maxRadius=6)
     return circles
 
 
 def __find_hough(img, as_pandas=False):
-    coords, kps = [], []
+    coords, stars_data = [], []
     circles = __get_hough_circles(img)
     if circles is not None:
         for x, y, r in circles[0]:
-            x, y, r = int(x), int(y), round(r, 2)
-            b = img[y, x] / np.max(img)
-            diameter = 2 * r
-            coords.append((x, y, r, b))
-            kps.append(cv2.KeyPoint(x, y, diameter))
-    coords_arr = np.array(coords, dtype=np.uint32) if len(
-        coords) > 0 else coords  # empty np.array raises an error in pd.DataFrame
-    if as_pandas:
-        return kps, pd.DataFrame(coords_arr, columns=['x', 'y', 'r', 'b'], dtype=np.uint32)
-    return kps, coords_arr
+            x, y, r = round(x, 5), round(y, 5), round(r, 2)
+            b = img[int(y), int(x)] / np.max(img)
+            stars_data.append((x, y, r, b))
+            coords.append([x, y])
+    return __handle_data_return(coords, stars_data, as_pandas)
 
 
 def __get_blobs(img):
@@ -64,16 +59,23 @@ def __get_blobs(img):
 
 def __find_blobs(img, as_pandas=False):
     keypoints = __get_blobs(img)
-    coords = []
+    coords, stars_data = [], []
     for kp in keypoints:
         x, y = kp.pt
+        x, y = round(x, 5), round(y, 5)
         b = img[int(y), int(x)] / np.max(img)
-        coords.append([round(x, 5), round(y, 5), round(kp.size, 2), b])
-    coords_arr = np.array(coords) if len(coords) > 0 else coords
+        stars_data.append([x, y, round(kp.size, 2), b])
+        coords.append([round(x, 5), round(y, 5)])
+    return __handle_data_return(coords, stars_data, as_pandas)
+
+
+def __handle_data_return(coords, stars_data, as_pandas):
     # empty coords_arr raises an error in pd.DataFrame
+    stars_data_arr = np.array(stars_data) if len(stars_data) > 0 else stars_data
+    coords_arr = np.array(coords) if len(coords) > 0 else coords
     if as_pandas:
-        return keypoints, pd.DataFrame(coords_arr, columns=['x', 'y', 'r', 'b'])
-    return keypoints, coords_arr
+        return coords_arr, pd.DataFrame(stars_data_arr, columns=['x', 'y', 'r', 'b'])
+    return coords_arr, stars_data_arr
 
 
 def find_stars(img, as_pandas=False, method='hough'):
@@ -98,12 +100,11 @@ def save_as_text_file(stars_data: [np.ndarray, pd.DataFrame], filename: str):
         print(e)
 
 
-def plot_detected_stars(img, kps):
-    img_with_kps = cv2.drawKeypoints(img, kps, np.array([]),
-                                     (0, 255, 0), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    # Display the result using matplotlib
-    plt.figure(figsize=(10, 10))
-    plt.imshow(img_with_kps)
+def plot_detected_stars(img, stars_data):
+    fig, ax = plt.subplots()
+    ax.imshow(img, cmap='gray')
+    for (x, y, r, b) in stars_data:
+        ax.add_patch(plt.Circle((x, y), radius=r * 4, edgecolor='g', facecolor='none'))
     plt.axis('off')
     plt.tight_layout()
     plt.show()
@@ -111,10 +112,10 @@ def plot_detected_stars(img, kps):
 
 if __name__ == '__main__':
     im1_path = "Ex1_test_101/fr1.jpg"
-    keypoints1, im1_data = find_stars(load_image(im1_path))
+    points1, im1_data = find_stars(load_image(im1_path))
 
     im2_path = "Ex1_test_101/ST_db2.png"
     im2 = load_image(im2_path)
-    keypoints2, im2_data = find_stars(im2)
+    points2, im2_data = find_stars(im2)
 
-    plot_detected_stars(im2, keypoints2)
+    plot_detected_stars(im2, im2_data[:20])
